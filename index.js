@@ -241,7 +241,8 @@ function randomIntFromInterval(min, max) { // min and max included
 function createSingleBird() {
     const group_bird = new THREE.Group();
 
-    loader.load('bird8.glb', function (gltf) {
+    const bird_nr = 12;
+    loader.load(`bird${bird_nr}.glb`, function (gltf) {
         const model = gltf.scene;
         const clips = gltf.animations;
         console.log('bird loaded', gltf);
