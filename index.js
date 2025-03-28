@@ -9,6 +9,13 @@ import { BloomPass } from 'three/addons/postprocessing/BloomPass.js';
 import { FocusShader } from 'three/addons/shaders/FocusShader.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import TWEEN from "@tweenjs/tween.js";
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { dot, cross, norm } from 'https://alikim.com/_v1_jsm/geometry.js'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+
+
+
+const loader = new GLTFLoader();
 
 let camera, scene, renderer;
 let composer, effectFocus;
@@ -16,6 +23,10 @@ let stats;
 let last_pos = 0;
 
 let group_splines;
+
+let mixer;
+
+const clock = new THREE.Clock();
 
 init();
 
@@ -37,38 +48,38 @@ function init() {
     container.appendChild(renderer.domElement);
 
     // Camera
-    camera = new THREE.PerspectiveCamera(20, window.innerWidth / window.innerHeight, 1, 50000);
-    camera.position.set(0, 700, 7000);
+    camera = new THREE.PerspectiveCamera(20, window.innerWidth / window.innerHeight, 1, 5000);
+    camera.position.set(0, 700, 700);
     camera.lookAt(scene.position);
 
-    // Fireworks
-    fireworksShow();
+    // Controls
+    const controls = new OrbitControls(camera, renderer.domElement);
+
+    const ambi_light = new THREE.AmbientLight(0x404040, 1);
+    scene.add(ambi_light);
+
+    const dir_light = new THREE.DirectionalLight(0xffffff, 1);
+    dir_light.position.set(1, 1, 1);
+    scene.add(dir_light);
 
     // Test
 
-    /*
-    const geo_cube = new THREE.BoxGeometry(1500, 10, 10);
+
+    const geo_cube = new THREE.CylinderGeometry(120, 120, 120);
     const cube = new THREE.Mesh(geo_cube);
-    scene.add(cube);
-    */
+    //scene.add(cube);
+
+    //createSingleSpline();
 
     // postprocessing
-    const renderModel = new RenderPass(scene, camera);
-    const effectBloom = new BloomPass(0.75);
 
-    effectFocus = new ShaderPass(FocusShader);
+    /*
+    const nest1 = createSingleNest(100, 3, 20);
+    scene.add(nest1);
+    */
 
-    effectFocus.uniforms['screenWidth'].value = window.innerWidth * window.devicePixelRatio;
-    effectFocus.uniforms['screenHeight'].value = window.innerHeight * window.devicePixelRatio;
-
-    const outputPass = new OutputPass();
-
-    composer = new EffectComposer(renderer);
-
-    composer.addPass(renderModel);
-    composer.addPass(effectBloom);
-    composer.addPass(effectFocus);
-    composer.addPass(outputPass);
+    const bird = createSingleBird();
+    scene.add(bird);
 
     window.addEventListener('resize', onWindowResize);
 };
@@ -80,169 +91,179 @@ function onWindowResize() {
     camera.lookAt(scene.position);
 
     renderer.setSize(window.innerWidth, window.innerHeight);
-    composer.setSize(window.innerWidth, window.innerHeight);
 
-    effectFocus.uniforms['screenWidth'].value = window.innerWidth * window.devicePixelRatio;
-    effectFocus.uniforms['screenHeight'].value = window.innerHeight * window.devicePixelRatio;
 };
 
 function animate(time) {
-    composer.render(0.01);
-    TWEEN.update(time);
-    group_splines.children.forEach(function (sp) {
-        if (sp.material.uniforms.u_time.value > 2.0) {
-            sp.userData.type = 'shrink';
-        };
+    const delta = clock.getDelta();
 
-        if (sp.userData.type == 'grow') {
-            sp.material.uniforms.u_time.value += 0.01;
-        } else {
-            if(sp.material.uniforms.u_time.value > 0){
-                sp.material.uniforms.u_time.value -= 0.01;
-            } else {
-                sp.material.uniforms.u_time.value = 0;
-            };
-        };
-    });
+    if(mixer){
+        mixer.update(delta);
+    }
+
+    //controls.update();
+
+    //stats.update();
+
+    renderer.render(scene, camera);
 };
-
-function fireworksShow() {
-    group_splines = new THREE.Group();
-    scene.add(group_splines);
-    createSingleSpline();
-};
-
 
 function createSingleSpline() {
     // Spline
-    const randomPoints = [];
+    const ellipse_curve = new THREE.EllipseCurve(
+        0, 0,            // ax, aY
+        10, 5,           // xRadius, yRadius
+        0, 2 * Math.PI,  // aStartAngle, aEndAngle
+        false,            // aClockwise
+        0                 // aRotation
+    );
 
-    const x = 100;
+    const points_ellipse = ellipse_curve.getPoints(50);
+    const shape_ellipse = new THREE.Shape(points_ellipse);
 
-    for (let i = 0; i < 10; i++) {
-        randomPoints.push(new THREE.Vector3(THREE.MathUtils.randFloat(- x, x), (i - 4.5) * 150, THREE.MathUtils.randFloat(- 50, 50)));
-    };
-
-    const randomSpline = new THREE.CatmullRomCurve3(randomPoints);
+    const size_x = 100;
+    const size_y = 500;
+    const line_curve = new THREE.CubicBezierCurve3(
+        new THREE.Vector3(-size_x, 0, 0),
+        new THREE.Vector3(-size_x * 2, size_y, 0),
+        new THREE.Vector3(size_x * 2, size_y, 0),
+        new THREE.Vector3(size_x, 0, 0)
+    );
 
     const extrudeSettings2 = {
         steps: 200,
         bevelEnabled: false,
-        extrudePath: randomSpline
+        extrudePath: line_curve
     };
 
-    const pts2 = [], numPts = 3;
+    const geometry1 = new THREE.ExtrudeGeometry(shape_ellipse, extrudeSettings2);
+    const material2 = new THREE.MeshPhongMaterial({ color: 0xff8000, wireframe: false, });
 
-    for (let i = 0; i < numPts * 2; i++) {
-        const l = i % 2 == 1 ? 10 : 20;
-        const a = i / numPts * Math.PI;
-        pts2.push(new THREE.Vector2(Math.cos(a) * l, Math.sin(a) * l));
-    };
+    const mesh2 = new THREE.InstancedMesh(geometry1, material2, 10);
+    scene.add(mesh2);
 
-    const shape2 = new THREE.Shape(pts2);
+    const radius = 550;
+    const pos = new THREE.Vector3(0, 0, 0);
+    const rotation = new THREE.Quaternion(0, 0, 0, 1);
+    const scale = new THREE.Vector3(1, 1, 1);
+    const matrix = new THREE.Matrix4();
 
-    const geometry2 = new THREE.ExtrudeGeometry(shape2, extrudeSettings2);
-    geometry2.computeBoundingBox();
+    const single_vector = [0, -1, 0];
+    const vectors = [
+        [0, 1, 0],
+        [-.75, 0, 0],
+        /*
+        [0, -1, 0],
+        [1, 0, 0],
+        [-1, 0, 0],
+        [0, -.5, 0],
+        [.5, 0, 0],
+        [0, .5, 0],
+        [-.5, 0, 0],
+        [-.25, 0, 0],
+        */
+    ];
 
-    const material2 = new THREE.MeshBasicMaterial({ color: 0xff8000, wireframe: false, });
-    const rndmclr1 = getRandomColor();
-    const rndmclr2 = getRandomColor();
-
-    // talpha =  smoothstep(1.0, 0.0, vUv.y*u_time - 1.0);
-
-    const mat_sky = new THREE.ShaderMaterial({
-        uniforms: {
-            color1: {
-                value: new THREE.Color(rndmclr1)
-            },
-            color2: {
-                value: new THREE.Color(rndmclr2)
-            },
-            bboxMin: {
-                value: geometry2.boundingBox.min
-            },
-            bboxMax: {
-                value: geometry2.boundingBox.max
-            },
-            u_time: { type: "f", value: 0 }
-        },
-
-        vertexShader: `
-        uniform vec3 bboxMin;
-        uniform vec3 bboxMax;
-
-        varying vec2 vUv;
-        uniform float u_time;
-  
-        void main() {
-            vUv.y = (position.y - bboxMin.y) / (bboxMax.y - bboxMin.y);
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+    const quaternFromVects = (v1, v2, err = 0.0001) => {
+        const costh = dot(v1, v2);
+        if (costh > -1 + err) {
+            const q = [costh + 1, ...cross(...v1, ...v2)];
+            return norm(q);
+        } else {
+            const aux = [0, 0, 0];
+            const va = v1.map(Math.abs);
+            let [min, ind] = [va[0], 0];
+            if (va[1] < min) { min = va[1]; ind = 1; }
+            if (va[2] < min) ind = 2;
+            aux[ind] = 1;
+            const orth = norm(cross(...v1, ...aux));
+            return [0, ...orth];
         }
-        `,
-
-        fragmentShader: `
-        uniform vec3 color1;
-        uniform vec3 color2;
-
-        uniform vec2 v_resolution;
-        uniform float u_time;
-        varying vec2 vUv;
-
-        void main() {
-            float talpha =  smoothstep(0.0, 1.0, 1.0 - vUv.y / u_time);
-            gl_FragColor = vec4(mix(color1, color2, vUv.y), talpha);
-        }
-    `,
-
-        transparent: true,
-    });
-
-    material2.onBeforeCompile = function (shader) {
-        shader.fragmentShader = shader.fragmentShader.replace(
-            'gl_FragColor = vec4( packNormalToRGB( normal ), opacity );',
-            [
-                'gl_FragColor = vec4( packNormalToRGB( normal ), opacity );',
-                'gl_FragColor.a *= pow( gl_FragCoord.z, 50.0 );',
-            ].join('\n')
-        );
     };
 
-    const mesh2 = new THREE.Mesh(geometry2, mat_sky);
-    mesh2.userData.type = 'grow';
-    group_splines.add(mesh2);
+    for (let i = 0; i < mesh2.count; i++) {
+        if (vectors[i]) {
 
-    const max_distance = 80;
-    const min_distance = 10;
-    last_pos = last_pos > 0 ? -randomIntFromInterval(min_distance, max_distance) * 10 : randomIntFromInterval(min_distance, max_distance) * 10;
-    mesh2.position.x = last_pos;
+            const q = quaternFromVects(single_vector, vectors[i]);
+            rotation.set(q[1], q[2], q[3], q[0]);
+            pos.set(...(vectors[i].map(e => e * radius)));
+            matrix.compose(pos, rotation, scale);
+            mesh2.setMatrixAt(i, matrix);
+        };
+    }
+};
 
-    setTimeout(function () {
-        const fade = { scale: 1 };
+function createSingleNest(nest_size, egg_amount, egg_size) {
+    const group_nest = new THREE.Group();
+    const geo_nest = new THREE.CylinderGeometry(nest_size, nest_size - (nest_size / 4), nest_size / 4, 24, 1, true);
+    const mat_nest = new THREE.MeshPhongMaterial({ color: 0xff8000, wireframe: false, side: THREE.DoubleSide });
+    const mesh_nest = new THREE.Mesh(geo_nest, mat_nest);
 
-        const tween1 = new TWEEN.Tween(fade)
-            .to({ scale: 0 }, 200)
-            .easing(TWEEN.Easing.Quadratic.Out)
-            .onUpdate(() => {
-                mesh2.scale.y = fade.scale
-            })
-            .onComplete(() => {
-                mesh2.parent.remove(mesh2);
-            });
+    const geo_nest_bottom = new THREE.CylinderGeometry(nest_size - (nest_size / 4) + 0.5, nest_size - (nest_size / 4) + 0.5, 1, 24, 1, false);
+    const mesh_nest_bottom = new THREE.Mesh(geo_nest_bottom, mat_nest);
+    mesh_nest_bottom.position.y = - nest_size / 8;
 
-        //tween1.start();
-        mesh2.parent.remove(mesh2);
-    }, 3300);
+    group_nest.add(mesh_nest, mesh_nest_bottom);
+    for (let i = 0; i < egg_amount; i++) {
+        const egg = createSingleEgg();
+        egg.scale.set(egg_size, egg_size, egg_size);
+        group_nest.add(egg);
 
-    setTimeout(function () {
-        createSingleSpline();
-    }, 1500);
+        const angle = Math.random() * Math.PI * 2;
+        const random_radius = randomIntFromInterval(10, nest_size * 0.75);
+        const egg_pos_x = Math.cos(angle) * random_radius;
+        const egg_pos_y = Math.sin(angle) * random_radius;
+        egg.position.set(egg_pos_x, 0, egg_pos_y);
+    };
+
+    return group_nest;
+}
+
+function createSingleEgg() {
+    const points = [];
+
+    for (let deg = 0; deg <= 180; deg += 6) {
+        const rad = Math.PI * deg / 180;
+        const point = new THREE.Vector2((0.72 + .08 * Math.cos(rad)) * Math.sin(rad), - Math.cos(rad)); // the "egg equation"
+        points.push(point);
+    };
+
+    const geometry = new THREE.LatheGeometry(points, 32);
+    const mat_egg = new THREE.MeshPhongMaterial({ color: 0x458645, wireframe: false });
+    const mesh_egg = new THREE.Mesh(geometry, mat_egg);
+    return mesh_egg;
 };
 
 function randomIntFromInterval(min, max) { // min and max included 
     return Math.floor(Math.random() * (max - min + 1) + min);
 };
 
-function getRandomColor() {
-    const randomColor = "#000000".replace(/0/g, function () { return (~~(Math.random() * 16)).toString(16); });
-    return randomColor;
+function createSingleBird() {
+    const group_bird = new THREE.Group();
+
+    loader.load('bird8.glb', function (gltf) {
+        const model = gltf.scene;
+        const clips = gltf.animations;
+        console.log('bird loaded', gltf);
+
+        group_bird.add(model);
+
+        mixer = new THREE.AnimationMixer(model);
+        mixer.clipAction( gltf.animations[ 0 ] ).play();
+   
+    });
+    /*
+
+    const geo_body = new THREE.SphereGeometry(10, 36, 36);
+    const mat_bird = new THREE.MeshPhongMaterial({color: 0xffffff, wireframe: false});
+    const mesh_body = new THREE.Mesh(geo_body, mat_bird);
+
+    const geo_wing = new THREE.BoxGeometry(20, 1, 10);
+    const mesh_wing = new THREE.Mesh(geo_wing, mat_bird);
+    mesh_wing.position.x = -10;
+
+    group_bird.add(mesh_body, mesh_wing);
+
+    */
+    return group_bird;
 };
