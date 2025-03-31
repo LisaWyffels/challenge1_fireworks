@@ -2,7 +2,7 @@ export const gameData = {
     birds: [
         {
             id: 0,
-            name: 'Eagle',
+            name: 'Red Robin',
             size:0.08,
             egg: {
                 size: 5,
@@ -13,9 +13,10 @@ export const gameData = {
                 size: 25,
             },
             materials: {
-                color_beak: '#EBA046',
-                color_wings: '#594033',
-                color_tail: '#594033'
+                color_beak: '#343232',
+                color_wings: '#847358',
+                color_tail: '#847358',
+                mat_body: 'redrobin.jpg'
             }
         },
         {

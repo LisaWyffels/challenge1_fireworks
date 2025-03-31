@@ -61,7 +61,7 @@ function init() {
 
     // Controls
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableRotate = false;
+    //controls.enableRotate = false;
 
     createEnvironment();
 
@@ -86,7 +86,7 @@ function init() {
 function spawnRandomBird() {
     const random_bird_id = getRandomInt(3);
     console.log('random_bird_id', random_bird_id);
-    createSingleBird(random_bird_id, function(bird){
+    createSingleBird(0, function(bird){
         scene.add(bird);
 
     });
@@ -332,7 +332,7 @@ function createSingleBird(bird_id, callback) {
     bird.scale.set(bird_scale, bird_scale, bird_scale);
 
     // Create different materials for each part
-    const wingMaterial = new THREE.MeshPhongMaterial({
+    const wingMaterial = new THREE.MeshBasicMaterial({
         name: 'wing',
         color: bird_data.materials.color_wings, // Darker brown for wings
         shininess: 5
@@ -356,14 +356,17 @@ function createSingleBird(bird_id, callback) {
         shininess: 5
     });
 
-    const bodyMaterial = new THREE.MeshPhongMaterial({
+    const bodyMaterial = new THREE.MeshBasicMaterial({
         name: 'body',
+        shininess: 5
     });
 
-    textureLoader.load('uvgrid.png', function(texture) {
+    textureLoader.load(bird_data.materials.mat_body, function(texture) {
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        texture.flipY = false;
         bodyMaterial.map = texture;
 
-        const bird_nr = 12;
+        const bird_nr = 10;
     loader.load(`bird${bird_nr}.glb`, function (gltf) {
         const model = gltf.scene;
         model.traverse((node) => {
@@ -372,6 +375,7 @@ function createSingleBird(bird_id, callback) {
                 node.receiveShadow = true;
 
                 console.log('Mesh name:', node);
+                
                 switch(node.name) {
                     case 'wing1_obj':
                     case 'wing2_obj':
@@ -390,6 +394,7 @@ function createSingleBird(bird_id, callback) {
                         node.material = eyeMaterial;
                         break;
                 };
+                
             };
         });
 
