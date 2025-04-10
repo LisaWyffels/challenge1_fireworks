@@ -86,7 +86,7 @@ function init() {
 function spawnRandomBird() {
     const random_bird_id = getRandomInt(3);
     console.log('random_bird_id', random_bird_id);
-    createSingleBird(0, function(bird){
+    createSingleBird(random_bird_id, function(bird){
         scene.add(bird);
 
     });
@@ -238,7 +238,7 @@ function rightNestAnimation(group_nest_data) {
 
 function getRandomPosition(radius) {
     const angle = Math.random() * Math.PI * 2;
-    const random_radius = randomIntFromInterval(10, radius * 0.7);
+    const random_radius = randomIntFromInterval(0, radius);
     const x = Math.cos(angle) * random_radius;
     const y = Math.sin(angle) * random_radius;
     return { x, y };
@@ -277,12 +277,12 @@ function createSingleNest(single_bird_data) {
         egg.scale.set(egg_size, egg_size, egg_size);
         group_eggs.add(egg);
 
-        const { x, y } = getRandomPosition(nest_size * 0.7);
+        const { x, y } = getRandomPosition(nest_size * 0.75);
         egg.position.set(x, egg_size / 2, y);
         egg.userData.eggSize = egg_size;
     };
 
-    const { x, y } = getRandomPosition(500);
+    const { x, y } = getRandomPosition(300);
     group_nest.position.set(x, -30, y);
 
     const bb = new THREE.Box3().setFromObject(group_nest);
