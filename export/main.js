@@ -9394,128 +9394,43 @@ var require_main = __commonJS({
         return new LatheGeometry(data.points, data.segments, data.phiStart, data.phiLength);
       }
     }
-    class CylinderGeometry extends BufferGeometry {
-      constructor(radiusTop = 1, radiusBottom = 1, height = 1, radialSegments = 32, heightSegments = 1, openEnded = false, thetaStart = 0, thetaLength = Math.PI * 2) {
+    class CircleGeometry extends BufferGeometry {
+      constructor(radius = 1, segments = 32, thetaStart = 0, thetaLength = Math.PI * 2) {
         super();
-        this.type = "CylinderGeometry";
+        this.type = "CircleGeometry";
         this.parameters = {
-          radiusTop,
-          radiusBottom,
-          height,
-          radialSegments,
-          heightSegments,
-          openEnded,
+          radius,
+          segments,
           thetaStart,
           thetaLength
         };
-        const scope = this;
-        radialSegments = Math.floor(radialSegments);
-        heightSegments = Math.floor(heightSegments);
+        segments = Math.max(3, segments);
         const indices = [];
         const vertices = [];
         const normals = [];
         const uvs = [];
-        let index = 0;
-        const indexArray = [];
-        const halfHeight = height / 2;
-        let groupStart = 0;
-        generateTorso();
-        if (openEnded === false) {
-          if (radiusTop > 0)
-            generateCap(true);
-          if (radiusBottom > 0)
-            generateCap(false);
+        const vertex2 = new Vector3();
+        const uv = new Vector2();
+        vertices.push(0, 0, 0);
+        normals.push(0, 0, 1);
+        uvs.push(0.5, 0.5);
+        for (let s = 0, i = 3; s <= segments; s++, i += 3) {
+          const segment = thetaStart + s / segments * thetaLength;
+          vertex2.x = radius * Math.cos(segment);
+          vertex2.y = radius * Math.sin(segment);
+          vertices.push(vertex2.x, vertex2.y, vertex2.z);
+          normals.push(0, 0, 1);
+          uv.x = (vertices[i] / radius + 1) / 2;
+          uv.y = (vertices[i + 1] / radius + 1) / 2;
+          uvs.push(uv.x, uv.y);
+        }
+        for (let i = 1; i <= segments; i++) {
+          indices.push(i, i + 1, 0);
         }
         this.setIndex(indices);
         this.setAttribute("position", new Float32BufferAttribute(vertices, 3));
         this.setAttribute("normal", new Float32BufferAttribute(normals, 3));
         this.setAttribute("uv", new Float32BufferAttribute(uvs, 2));
-        function generateTorso() {
-          const normal = new Vector3();
-          const vertex2 = new Vector3();
-          let groupCount = 0;
-          const slope = (radiusBottom - radiusTop) / height;
-          for (let y = 0; y <= heightSegments; y++) {
-            const indexRow = [];
-            const v = y / heightSegments;
-            const radius = v * (radiusBottom - radiusTop) + radiusTop;
-            for (let x = 0; x <= radialSegments; x++) {
-              const u = x / radialSegments;
-              const theta = u * thetaLength + thetaStart;
-              const sinTheta = Math.sin(theta);
-              const cosTheta = Math.cos(theta);
-              vertex2.x = radius * sinTheta;
-              vertex2.y = -v * height + halfHeight;
-              vertex2.z = radius * cosTheta;
-              vertices.push(vertex2.x, vertex2.y, vertex2.z);
-              normal.set(sinTheta, slope, cosTheta).normalize();
-              normals.push(normal.x, normal.y, normal.z);
-              uvs.push(u, 1 - v);
-              indexRow.push(index++);
-            }
-            indexArray.push(indexRow);
-          }
-          for (let x = 0; x < radialSegments; x++) {
-            for (let y = 0; y < heightSegments; y++) {
-              const a = indexArray[y][x];
-              const b = indexArray[y + 1][x];
-              const c = indexArray[y + 1][x + 1];
-              const d = indexArray[y][x + 1];
-              if (radiusTop > 0 || y !== 0) {
-                indices.push(a, b, d);
-                groupCount += 3;
-              }
-              if (radiusBottom > 0 || y !== heightSegments - 1) {
-                indices.push(b, c, d);
-                groupCount += 3;
-              }
-            }
-          }
-          scope.addGroup(groupStart, groupCount, 0);
-          groupStart += groupCount;
-        }
-        function generateCap(top) {
-          const centerIndexStart = index;
-          const uv = new Vector2();
-          const vertex2 = new Vector3();
-          let groupCount = 0;
-          const radius = top === true ? radiusTop : radiusBottom;
-          const sign = top === true ? 1 : -1;
-          for (let x = 1; x <= radialSegments; x++) {
-            vertices.push(0, halfHeight * sign, 0);
-            normals.push(0, sign, 0);
-            uvs.push(0.5, 0.5);
-            index++;
-          }
-          const centerIndexEnd = index;
-          for (let x = 0; x <= radialSegments; x++) {
-            const u = x / radialSegments;
-            const theta = u * thetaLength + thetaStart;
-            const cosTheta = Math.cos(theta);
-            const sinTheta = Math.sin(theta);
-            vertex2.x = radius * sinTheta;
-            vertex2.y = halfHeight * sign;
-            vertex2.z = radius * cosTheta;
-            vertices.push(vertex2.x, vertex2.y, vertex2.z);
-            normals.push(0, sign, 0);
-            uv.x = cosTheta * 0.5 + 0.5;
-            uv.y = sinTheta * 0.5 * sign + 0.5;
-            uvs.push(uv.x, uv.y);
-            index++;
-          }
-          for (let x = 0; x < radialSegments; x++) {
-            const c = centerIndexStart + x;
-            const i = centerIndexEnd + x;
-            if (top === true) {
-              indices.push(i, i + 1, c);
-            } else {
-              indices.push(i + 1, i, c);
-            }
-            groupCount += 3;
-          }
-          scope.addGroup(groupStart, groupCount, top === true ? 1 : 2);
-          groupStart += groupCount;
-        }
       }
       copy(source) {
         super.copy(source);
@@ -9523,7 +9438,7 @@ var require_main = __commonJS({
         return this;
       }
       static fromJSON(data) {
-        return new CylinderGeometry(data.radiusTop, data.radiusBottom, data.height, data.radialSegments, data.heightSegments, data.openEnded, data.thetaStart, data.thetaLength);
+        return new CircleGeometry(data.radius, data.segments, data.thetaStart, data.thetaLength);
       }
     }
     class PolyhedronGeometry extends BufferGeometry {
@@ -27324,14 +27239,14 @@ void main() {
       birds: [{
         id: 0,
         name: "Red Robin",
-        size: 0.08,
+        size: 0.05,
         egg: {
-          size: 5,
+          size: 3,
           color: "brown",
           amount: 3
         },
         nest: {
-          size: 25
+          size: 15
         },
         materials: {
           color_beak: "#343232",
@@ -27342,9 +27257,9 @@ void main() {
       }, {
         id: 1,
         name: "Pigeon",
-        size: 0.05,
+        size: 0.08,
         egg: {
-          size: 5,
+          size: 4,
           color: "green",
           amount: 2
         },
@@ -27352,26 +27267,28 @@ void main() {
           size: 20
         },
         materials: {
-          color_beak: "#EBA046",
-          color_wings: "#594033",
-          color_tail: "#594033"
+          color_beak: "#d9a3ac",
+          color_wings: "#797a77",
+          color_tail: "#797a77",
+          mat_body: "pigeon.jpg"
         }
       }, {
         id: 2,
-        name: "Blackbird",
-        size: 0.03,
+        name: "Blue tit",
+        size: 0.04,
         egg: {
-          size: 4,
+          size: 2,
           color: "red",
-          amount: 5
+          amount: 3
         },
         nest: {
-          size: 15
+          size: 8
         },
         materials: {
-          color_beak: "#EBA046",
-          color_wings: "#594033",
-          color_tail: "#594033"
+          color_beak: "#100E10",
+          color_wings: "#436fa0",
+          color_tail: "#436fa0",
+          mat_body: "bluetit.jpg"
         }
       }]
     };
@@ -28086,7 +28003,7 @@ void main() {
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
     }
 `;
-    const eggFragmentShader = `
+    const eggRobinFragmentShader = `
     varying vec2 vUv;
     varying vec3 vNormal;
     varying vec3 vPosition;
@@ -28142,16 +28059,271 @@ void main() {
         gl_FragColor = vec4(finalColor, 1.0);
     }
 `;
+    const pigeonEggFragmentShader = `
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    varying vec3 vPosition;
+
+    // Pseudo-random function
+    float random(vec2 st) {
+        return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+    }
+
+    // 2D noise
+    float noise(vec2 st) {
+        vec2 i = floor(st);
+        vec2 f = fract(st);
+        
+        float a = random(i);
+        float b = random(i + vec2(1.0, 0.0));
+        float c = random(i + vec2(0.0, 1.0));
+        float d = random(i + vec2(1.0, 1.0));
+
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+    }
+
+    void main() {
+        // Pigeon egg - cream/white color
+        vec3 eggColor = vec3(0.98, 0.96, 0.93);        // Base cream color
+        vec3 speckleColor = vec3(0.93, 0.90, 0.87);    // Slightly darker for subtle variation
+        
+        // Create multiple layers of noise for natural texture
+        float noiseScale = 25.0;
+        vec2 noisePos = vPosition.xy * noiseScale;
+        float n = noise(noisePos);
+        float n2 = noise(noisePos * 3.0) * 0.5;
+        float n3 = noise(noisePos * 7.0) * 0.25;
+        
+        // Combine noise layers for a natural look
+        float combinedNoise = n + n2 + n3;
+        
+        // Create very subtle speckle effect
+        float speckles = smoothstep(0.7, 0.9, combinedNoise);
+        
+        // Mix colors
+        vec3 finalColor = mix(eggColor, speckleColor, speckles * 0.2);
+        
+        // Add subtle variation based on position for depth
+        float positionVariation = (vPosition.y + 1.0) * 0.05;
+        finalColor *= (0.98 + positionVariation);
+
+        // Add lighting variation based on normal
+        float lightIntensity = dot(vNormal, vec3(0.0, 1.0, 0.0)) * 0.5 + 0.5;
+        finalColor *= 0.9 + lightIntensity * 0.15;
+
+        gl_FragColor = vec4(finalColor, 1.0);
+    }
+`;
+    const blueTitEggFragmentShader = `
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    varying vec3 vPosition;
+
+    // Pseudo-random function
+    float random(vec2 st) {
+        return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+    }
+
+    // 2D noise
+    float noise(vec2 st) {
+        vec2 i = floor(st);
+        vec2 f = fract(st);
+        
+        float a = random(i);
+        float b = random(i + vec2(1.0, 0.0));
+        float c = random(i + vec2(0.0, 1.0));
+        float d = random(i + vec2(1.0, 1.0));
+
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+    }
+
+    void main() {
+        // Blue Tit egg colors
+        vec3 eggColor = vec3(0.97, 0.97, 0.95);        // White base color
+        vec3 speckleColor = vec3(0.7, 0.35, 0.25);     // Reddish-brown speckles
+        vec3 lightSpeckleColor = vec3(0.85, 0.6, 0.5); // Lighter reddish specks
+        
+        // Create multiple layers of noise for natural texture
+        float noiseScale = 30.0;
+        vec2 noisePos = vPosition.xy * noiseScale;
+        float n = noise(noisePos);
+        float n2 = noise(noisePos * 5.0) * 0.5;
+        float n3 = noise(noisePos * 15.0) * 0.25;
+        
+        // Combine noise layers for a natural look
+        float combinedNoise = n + n2 + n3;
+        
+        // Create speckle effects of different sizes
+        float smallSpeckles = smoothstep(0.65, 0.7, noise(noisePos * 20.0));
+        float mediumSpeckles = smoothstep(0.75, 0.8, combinedNoise);
+        float largeSpeckles = smoothstep(0.85, 0.9, n) * 0.7;
+        
+        // Combine different speckle sizes
+        float allSpeckles = smallSpeckles * 0.3 + mediumSpeckles * 0.6 + largeSpeckles;
+        
+        // Create clusters of speckles concentrated on one end
+        float clusterGradient = smoothstep(-0.8, 0.4, vPosition.z) * 0.6;
+        allSpeckles *= clusterGradient + 0.4; // Allow some speckles everywhere, but more at one end
+        
+        // Mix colors
+        vec3 specklePattern = mix(lightSpeckleColor, speckleColor, noise(noisePos * 2.0));
+        vec3 finalColor = mix(eggColor, specklePattern, allSpeckles);
+        
+        // Add subtle variation based on position for depth
+        float positionVariation = (vPosition.y + 1.0) * 0.05;
+        finalColor *= (0.97 + positionVariation);
+
+        // Add lighting variation based on normal
+        float lightIntensity = dot(vNormal, vec3(0.0, 1.0, 0.0)) * 0.5 + 0.5;
+        finalColor *= 0.85 + lightIntensity * 0.2;
+
+        gl_FragColor = vec4(finalColor, 1.0);
+    }
+`;
     const eggShaders = [{
       vertexShader: eggVertexShader,
-      fragmentShader: eggFragmentShader
+      fragmentShader: eggRobinFragmentShader
     }, {
       vertexShader: eggVertexShader,
-      fragmentShader: eggFragmentShader
+      fragmentShader: pigeonEggFragmentShader
     }, {
       vertexShader: eggVertexShader,
-      fragmentShader: eggFragmentShader
+      fragmentShader: blueTitEggFragmentShader
     }];
+    const BLADE_WIDTH = 2;
+    const BLADE_HEIGHT = 5;
+    const BLADE_HEIGHT_VARIATION = 6;
+    const BLADE_VERTEX_COUNT = 5;
+    const BLADE_TIP_OFFSET = 1;
+    const clip_planes = [];
+    function interpolate(val, oldMin, oldMax, newMin, newMax) {
+      return (val - oldMin) * (newMax - newMin) / (oldMax - oldMin) + newMin;
+    }
+    class GrassGeometry extends BufferGeometry {
+      constructor(size, count, size_chalet, floor, texture) {
+        super();
+        const positions = [];
+        const uvs = [];
+        const indices = [];
+        for (let i = 0; i < count; i++) {
+          const surfaceMin = size / 2 * -1;
+          const surfaceMax = size / 2;
+          const radius = size / 2 * Math.random();
+          const theta = Math.random() * 2 * Math.PI;
+          let x = radius * Math.cos(theta);
+          let y = radius * Math.sin(theta);
+          uvs.push(...Array.from({
+            length: BLADE_VERTEX_COUNT
+          }).flatMap(() => [interpolate(x, surfaceMin, surfaceMax, 0, 1), interpolate(y, surfaceMin, surfaceMax, 0, 1)]));
+          const blade = this.computeBlade([x, 0, y], i);
+          positions.push(...blade.positions);
+          indices.push(...blade.indices);
+        }
+        this.setAttribute("position", new BufferAttribute(new Float32Array(positions), 3));
+        this.setAttribute("uv", new BufferAttribute(new Float32Array(uvs), 2));
+        this.setIndex(indices);
+        this.computeVertexNormals();
+      }
+      // Grass blade generation, covered in https://smythdesign.com/blog/stylized-grass-webgl
+      computeBlade(center, index = 0) {
+        const height = BLADE_HEIGHT + Math.random() * BLADE_HEIGHT_VARIATION;
+        const vIndex = index * BLADE_VERTEX_COUNT;
+        const yaw = Math.random() * Math.PI * 2;
+        const yawVec = [Math.sin(yaw), 0, -Math.cos(yaw)];
+        const bend = Math.random() * Math.PI * 2;
+        const bendVec = [Math.sin(bend), 0, -Math.cos(bend)];
+        const bl = yawVec.map((n, i) => n * (BLADE_WIDTH / 2) * 1 + center[i]);
+        const br = yawVec.map((n, i) => n * (BLADE_WIDTH / 2) * -1 + center[i]);
+        const tl = yawVec.map((n, i) => n * (BLADE_WIDTH / 4) * 1 + center[i]);
+        const tr = yawVec.map((n, i) => n * (BLADE_WIDTH / 4) * -1 + center[i]);
+        const tc = bendVec.map((n, i) => n * BLADE_TIP_OFFSET + center[i]);
+        tl[1] += height / 2;
+        tr[1] += height / 2;
+        tc[1] += height;
+        return {
+          positions: [...bl, ...br, ...tr, ...tl, ...tc],
+          indices: [vIndex, vIndex + 1, vIndex + 2, vIndex + 2, vIndex + 4, vIndex + 3, vIndex + 3, vIndex, vIndex + 2]
+        };
+      }
+    }
+    class Grass extends Mesh {
+      constructor(size, count, size_chalet, texture) {
+        const geo_circle = new CircleGeometry(size / 2, 32).rotateX(Math.PI / 2);
+        const floor = new Mesh(geo_circle);
+        floor.position.y = 0;
+        floor.rotation.y = -MathUtils.degToRad(90);
+        floor.receiveShadow = true;
+        const cloudTexture = texture;
+        const geometry = new GrassGeometry(size * 0.75, count, size_chalet, floor);
+        const material = new MeshPhongMaterial({
+          clipping: true,
+          clippingPlanes: clip_planes,
+          clipIntersection: true,
+          side: DoubleSide,
+          transparent: true,
+          color: 8629973
+        });
+        material.onBeforeCompile = function(shader) {
+          shader.uniforms.uTime = {
+            value: 0
+          };
+          shader.uniforms.uCloud = {
+            value: cloudTexture
+          };
+          const arr_vertex = `
+				uniform float uTime;
+				varying vec3 vPosition;
+				varying vec2 vUv;
+				float wave(float waveSize, float tipDistance, float centerDistance) {
+				bool isTip = (gl_VertexID + 1) % 5 == 0;
+				float waveDistance = isTip ? tipDistance : centerDistance;
+					return sin((uTime / 500.0) + waveSize) * waveDistance;
+				}
+			`;
+          shader.vertexShader = arr_vertex + shader.vertexShader;
+          shader.vertexShader = shader.vertexShader.replace("#include <begin_vertex>", `
+					#include <begin_vertex>
+					vPosition = position;
+					vUv = uv;
+					vNormal = normalize(normalMatrix * normal);
+					if (vPosition.y < 0.0) {
+						vPosition.y = 0.0;
+					} else {
+						vPosition.x += wave(uv.x * 10.0, 0.3, 0.1);
+					}
+					gl_Position = projectionMatrix * modelViewMatrix * vec4(vPosition, 1.0);
+				`);
+          const arr_fragment = `
+				uniform sampler2D uCloud;
+				varying vec3 vPosition;
+				varying vec2 vUv;
+				uniform vec2 resolution;
+				vec3 green = vec3(0.525,0.8,0.376);
+			`;
+          shader.fragmentShader = arr_fragment + shader.fragmentShader;
+          shader.fragmentShader = shader.fragmentShader.replace("vec4 diffuseColor = vec4( diffuse, opacity );", `
+					float strength = 1.0 - distance(vUv, vec2(0.5));
+					float alpha = smoothstep(0.55, 0.6, strength);
+					vec3 color = mix(green * 0.7, green, vPosition.y / 10.0);
+					color = mix(color, texture2D(uCloud, vUv).rgb, 0.4);
+					float lighting = normalize(dot(vNormal, vec3(10)));
+					vec4 diffuseColor = vec4(color + lighting * 0.03, alpha);
+				`);
+          material.userData.shader = shader;
+        };
+        floor.material = material;
+        super(geometry, material);
+        this.receiveShadow = true;
+        this.material.needsUpdate = true;
+        this.add(floor);
+        this.name = "grass";
+      }
+      update(time) {
+        this.material.uniforms.uTime.value = time;
+      }
+    }
     const loader = new GLTFLoader();
     const textureLoader = new TextureLoader();
     let camera, scene, renderer;
@@ -28185,11 +28357,22 @@ void main() {
       camera = new PerspectiveCamera(20, window.innerWidth / window.innerHeight, 1, 5e3);
       camera.position.set(0, 300, 700);
       camera.lookAt(scene.position);
-      new OrbitControls(camera, renderer.domElement);
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableRotate = false;
       createEnvironment();
+      const flowers = createFlowers();
+      scene.add(flowers);
+      textureLoader.load("noise3.jpg", function(tex2) {
+        tex2.wrapS = tex2.wrapT = RepeatWrapping;
+        const grass = new Grass(3e3, 1e6, 0, tex2);
+        grass.receiveShadow = true;
+        grass.position.y = -32;
+        scene.add(grass);
+      });
       gameData.birds.forEach((single_bird_data) => {
-        const nest = createSingleNest(single_bird_data);
-        scene.add(nest);
+        createSingleNest(single_bird_data, function(nest) {
+          scene.add(nest);
+        });
       });
       spawnRandomBird();
       window.addEventListener("keydown", handleKeyDown);
@@ -28198,8 +28381,7 @@ void main() {
     }
     function spawnRandomBird() {
       const random_bird_id = getRandomInt(3);
-      console.log("random_bird_id", random_bird_id);
-      createSingleBird(0, function(bird2) {
+      createSingleBird(random_bird_id, function(bird2) {
         scene.add(bird2);
       });
     }
@@ -28252,11 +28434,9 @@ void main() {
           if (bb_nest.containsPoint(bird.position)) {
             nest_found = true;
             if (bb_nests[i].nest.userData.birdId == bird.userData.birdId) {
-              console.log("Nest found");
               birdLoopAnimation();
               rightNestAnimation(bb_nests[i]);
             } else {
-              console.log("Wrong nest", bb_nests[i].nest.userData.birdId, bird.userData.birdId);
               wrongNestAnimations(bb_nests[i]);
             }
           }
@@ -28314,7 +28494,7 @@ void main() {
     }
     function getRandomPosition(radius) {
       const angle = Math.random() * Math.PI * 2;
-      const random_radius = randomIntFromInterval(10, radius * 0.7);
+      const random_radius = randomIntFromInterval(0, radius);
       const x = Math.cos(angle) * random_radius;
       const y = Math.sin(angle) * random_radius;
       return {
@@ -28322,56 +28502,51 @@ void main() {
         y
       };
     }
-    function createSingleNest(single_bird_data) {
-      const nest_size = single_bird_data.nest.size;
-      const egg_amount = single_bird_data.egg.amount;
-      const egg_size = single_bird_data.egg.size;
-      single_bird_data.egg.color;
+    function createSingleNest(single_bird_data, callback) {
       const group_nest = new Group$1();
       group_nest.name = "group_nest";
       group_nest.userData.birdId = single_bird_data.id;
-      const geo_nest = new CylinderGeometry(nest_size, nest_size - nest_size / 4, nest_size / 4, 24, 1, true);
-      const mat_nest = new MeshPhongMaterial({
-        color: 16744448,
-        wireframe: false,
-        side: DoubleSide
-      });
-      const mesh_nest = new Mesh(geo_nest, mat_nest);
-      const geo_nest_bottom = new CylinderGeometry(nest_size - nest_size / 4 + 0.5, nest_size - nest_size / 4 + 0.5, 1, 24, 1, false);
-      const mesh_nest_bottom = new Mesh(geo_nest_bottom, mat_nest);
-      mesh_nest_bottom.position.y = -nest_size / 8;
-      mesh_nest.castShadow = true;
-      mesh_nest.receiveShadow = true;
-      mesh_nest_bottom.castShadow = true;
-      mesh_nest_bottom.receiveShadow = true;
-      group_nest.add(mesh_nest, mesh_nest_bottom);
-      const group_eggs = new Group$1();
-      group_eggs.name = "group_eggs";
-      group_nest.add(group_eggs);
-      for (let i = 0; i < egg_amount; i++) {
-        const egg = createSingleEgg(single_bird_data.id);
-        egg.scale.set(egg_size, egg_size, egg_size);
-        group_eggs.add(egg);
+      loader.load("nest1.glb", function(gltf) {
+        const nest_model = gltf.scene;
+        const nest_size = single_bird_data.nest.size / 7.5;
+        const egg_amount = single_bird_data.egg.amount;
+        const egg_size = single_bird_data.egg.size;
+        nest_model.traverse((node) => {
+          if (node.isMesh) {
+            node.castShadow = true;
+            node.receiveShadow = true;
+          }
+        });
+        nest_model.scale.set(nest_size, nest_size, nest_size);
+        group_nest.add(nest_model);
+        const group_eggs = new Group$1();
+        group_eggs.name = "group_eggs";
+        group_nest.add(group_eggs);
+        for (let i = 0; i < egg_amount; i++) {
+          const egg = createSingleEgg(single_bird_data.id);
+          egg.scale.set(egg_size, egg_size, egg_size);
+          group_eggs.add(egg);
+          const {
+            x: x2,
+            y: y2
+          } = getRandomPosition(nest_size);
+          egg.position.set(x2, egg_size / 2, y2);
+          egg.userData.eggSize = egg_size;
+        }
         const {
-          x: x2,
-          y: y2
-        } = getRandomPosition(nest_size * 0.7);
-        egg.position.set(x2, egg_size / 2, y2);
-        egg.userData.eggSize = egg_size;
-      }
-      const {
-        x,
-        y
-      } = getRandomPosition(500);
-      group_nest.position.set(x, -30, y);
-      const bb = new Box3().setFromObject(group_nest);
-      bb.min.y = -30;
-      bb.max.y = 100;
-      bb_nests.push({
-        nest: group_nest,
-        bb
+          x,
+          y
+        } = getRandomPosition(200);
+        group_nest.position.set(x, -22, y);
+        const bb = new Box3().setFromObject(group_nest);
+        bb.min.y = -30;
+        bb.max.y = 100;
+        bb_nests.push({
+          nest: group_nest,
+          bb
+        });
       });
-      return group_nest;
+      callback(group_nest);
     }
     function createSingleEgg(bird_id) {
       const points = [];
@@ -28433,6 +28608,7 @@ void main() {
       textureLoader.load(bird_data.materials.mat_body, function(texture) {
         texture.wrapS = texture.wrapT = RepeatWrapping;
         texture.flipY = false;
+        texture.colorSpace = SRGBColorSpace;
         bodyMaterial.map = texture;
         const bird_nr = 10;
         loader.load(`bird${bird_nr}.glb`, function(gltf) {
@@ -28441,7 +28617,6 @@ void main() {
             if (node.isMesh) {
               node.castShadow = true;
               node.receiveShadow = true;
-              console.log("Mesh name:", node);
               switch (node.name) {
                 case "wing1_obj":
                 case "wing2_obj":
@@ -28596,6 +28771,68 @@ void main() {
         });
         rotationTween.start();
       }
+    }
+    function createFlowers() {
+      const petalGeometry = new PlaneGeometry(3, 3);
+      const petalMaterials = [
+        new MeshPhongMaterial({
+          color: 16738740,
+          side: DoubleSide
+        }),
+        // Pink
+        new MeshPhongMaterial({
+          color: 16776960,
+          side: DoubleSide
+        }),
+        // Yellow
+        new MeshPhongMaterial({
+          color: 16711680,
+          side: DoubleSide
+        }),
+        // Red
+        new MeshPhongMaterial({
+          color: 16777215,
+          side: DoubleSide
+        }),
+        // White
+        new MeshPhongMaterial({
+          color: 8388736,
+          side: DoubleSide
+        })
+        // Purple
+      ];
+      const flowerCount = 2e3;
+      const flowers = new InstancedMesh(petalGeometry, petalMaterials[0], flowerCount);
+      const matrix = new Matrix4();
+      const position = new Vector3();
+      const rotation = new Euler();
+      const quaternion = new Quaternion();
+      const scale = new Vector3();
+      const radius = 1e3;
+      for (let i = 0; i < flowerCount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const r = Math.sqrt(Math.random()) * radius;
+        position.set(
+          Math.cos(angle) * r,
+          -24,
+          // Same height as ground
+          Math.sin(angle) * r
+        );
+        rotation.set(
+          0.1 * Math.random(),
+          // Slight random tilt
+          Math.random() * Math.PI * 2,
+          // Random rotation around Y
+          0
+        );
+        quaternion.setFromEuler(rotation);
+        const scaleY = 0.5 + Math.random() * 0.3;
+        scale.set(scaleY, scaleY, scaleY);
+        matrix.compose(position, quaternion, scale);
+        flowers.setMatrixAt(i, matrix);
+        flowers.setColorAt(i, new Color(petalMaterials[Math.floor(Math.random() * petalMaterials.length)].color));
+      }
+      return flowers;
     }
   }
 });
